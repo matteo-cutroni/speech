@@ -2,6 +2,7 @@
 import csv
 import sentencepiece as spm
 import numpy as np
+import torch
 
 
 def prepare_data(metadata_path, txt_path):
@@ -37,15 +38,14 @@ if __name__ == "__main__":
     txt_path = 'LJSpeech-1.1/ljspeech.txt'
     prepare_data(metadata_path, txt_path)
     sp = create_tokenizer(txt_path)
-    
+    tokenized = tokenize_data(sp, txt_path)
+    padded = pad_data(tokenized, sp)
+
+    torch.save(padded, 'ljs_tokenized.pt')
+
     #example
     text = 'Forza Roma!'
     tokens = sp.encode(text, out_type=str)
     print(tokens)
     untokend = sp.decode(tokens)
     print(untokend)
-
-    tokenized = tokenize_data(sp, txt_path)
-    padded = pad_data(tokenized, sp)
-
-    np.save('ljs_tokenized', padded)

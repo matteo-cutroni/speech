@@ -91,12 +91,12 @@ class TtS(nn.Module):
         self.decoder = Decoder(d_model, nhead, num_decoder_layers, dim_feedforward)
         self.mel_linear = nn.Linear(d_model, n_mels)
 
-    def forward(self, x, durations):
+    def forward(self, x):
         x = self.encoder(x)
-        x = self.duration_predictor(x)
-        len_reg_output = self.length_regulator(x, durations)
-        pitch_out = self.pitch_predictor(len_reg_output)
-        energy_out = self.energy_predictor(len_reg_output)
-        x = len_reg_output + pitch_out.unsqueeze(-1) + energy_out.unsqueeze(-1)
+        durations = self.duration_predictor(x)
+        x = self.length_regulator(x, durations)
+        pitch_out = self.pitch_predictor(x)
+        energy_out = self.energy_predictor(x)
+        x = x + pitch_out.unsqueeze(-1) + energy_out.unsqueeze(-1)
         x = self.decoder(x)
         return self.mel_linear(x)
