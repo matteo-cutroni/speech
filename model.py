@@ -23,34 +23,34 @@ class Encoder(nn.Module):
     def __init__(self, vocab_size, d_model, nhead, num_encoder_layers, dim_feedforward, dropout=0.1):
         super().__init__()
 
-        self.embedding = nn.Embedding(vocab_size, d_model)
-        self.positional_encoding = PositionalEncoding(d_model)
+        self.embedding = nn.Embedding(vocab_size, d_model, padding_idx=3)
+        self.positional_encoding = PositionalEncoding(d_model)          
         encoder_layer = nn.TransformerEncoderLayer(d_model, nhead, dim_feedforward, dropout)
         self.transformer_encoder = nn.TransformerEncoder(encoder_layer, num_encoder_layers)
     
     def forward(self, x):
         x = self.embedding(x) * np.sqrt(x.size(1))
         x = self.positional_encoding(x)
+
         return self.transformer_encoder(x)
 
 
 class VariancePredictor(nn.Module):
     def __init__(self, d_model, conv_filter_size=256, kernel_size=3, dropout=0.5):
         super().__init__()
-        self.conv1 = nn.Conv1d(d_model, conv_filter_size, kernel_size)
+        self.conv1 = nn.Conv1d(d_model, conv_filter_size, kernel_size, padding=1)
         self.ln = nn.LayerNorm(conv_filter_size)
         self.dropout = nn.Dropout(dropout)
-        self.conv2 = nn.Conv1d(conv_filter_size, conv_filter_size, kernel_size)
+        self.conv2 = nn.Conv1d(conv_filter_size, conv_filter_size, kernel_size, padding=1)
         self.linear = nn.Linear(conv_filter_size, 1)
 
     def forward(self, x):
-        x = x.transpose(1, 2)
-        x = F.relu(self.conv1(x))
-        x = self.dropout(self.ln(x))
-        x = F.relu(self.conv2(x))
-        x = self.dropout(self.ln(x))
-        x = x.transpose(1, 2)
-        return self.linear(x).squeeze(-1)
+        # x shape: (batch_size, seq_len, d_model)
+        x = x.transpose(1, 2)  # Change shape to (batch_size, d_model, seq_len) for Conv1d
+        x = self.dropout(F.relu(self.ln(self.conv1(x).transpose(1, 2)))).transpose(1, 2)
+        x = self.dropout(F.relu(self.ln(self.conv2(x).transpose(1, 2)))).transpose(1, 2)
+        x = self.linear(x.transpose(1, 2)).squeeze(-1)
+        return x
 
 
 class LengthRegulator(nn.Module):
@@ -62,7 +62,7 @@ class LengthRegulator(nn.Module):
         for i, seq in enumerate(x):
             expanded_seq = []
             for j, frame in enumerate(seq):
-                expanded_seq += [frame] * durations[i][j]
+                expanded_seq += frame * durations[i][j]
             ret.append(torch.stack(expanded_seq))
         return nn.utils.rnn.pad_sequence(ret, batch_first=True)
 
@@ -93,8 +93,10 @@ class TtS(nn.Module):
 
     def forward(self, x):
         x = self.encoder(x)
+
         durations = self.duration_predictor(x)
         x = self.length_regulator(x, durations)
+        
         pitch_out = self.pitch_predictor(x)
         energy_out = self.energy_predictor(x)
         x = x + pitch_out.unsqueeze(-1) + energy_out.unsqueeze(-1)

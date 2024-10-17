@@ -11,8 +11,8 @@ from tqdm import tqdm
 def collate_fn(batch):
     texts, mels = zip(*batch)
     
-    texts = pad_sequence(texts, batch_first=True)
-    mels = pad_sequence(mels, batch_first=True)
+    texts = pad_sequence(texts, batch_first=True, padding_value=3)
+    mels = pad_sequence(mels, batch_first=True, padding_value=3)
     
     return texts, mels
 
@@ -33,13 +33,20 @@ class LJSpeechDataset(Dataset):
 if __name__ == "__main__":
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
+    # #colab
+    # text_path = '/content/drive/MyDrive/speech/ljs_tokenized.pt'
+    # mels_path = '/content/drive/MyDrive/speech/ljs_mels.pt'
+
+    text_path = 'ljs_tokenized.pt'
+    mels_path = 'ljs_mels.pt'
+
     batch_size = 16
     epochs = 10
     lr = 1e-4
 
 
-    text_data = torch.load('ljs_tokenized.pt')
-    mel_data = torch.load('ljs_mels.pt')
+    text_data = torch.load(text_path)
+    mel_data = torch.load(mels_path)
     dataset = LJSpeechDataset(text_data, mel_data)
     dataloader = DataLoader(dataset, batch_size, shuffle=True, collate_fn=collate_fn)
 
@@ -56,11 +63,10 @@ if __name__ == "__main__":
 
         for batch in dataloader:
             texts, mels = batch
-            texts.to(device)
-            mels.to(device)
+            texts = texts.to(device)
+            mels = mels.to(device)
 
             opt.zero_grad()
-
             pred = m(texts)
 
             loss = criterion(pred, mels)
@@ -71,7 +77,4 @@ if __name__ == "__main__":
             tot_loss += loss.item()
 
         print(f"Epoch {epoch+1}/{epochs}, Loss: {tot_loss / len(dataloader)}")
-
-
-    
 

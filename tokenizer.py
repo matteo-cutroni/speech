@@ -13,7 +13,7 @@ def prepare_data(metadata_path, txt_path):
                 f.write(f"{row[1]}\n")
 
 def create_tokenizer(txt_path):
-    spm.SentencePieceTrainer.train(input=txt_path, model_prefix='ljspeech_bpe', vocab_size=8000, character_coverage=1, model_type='bpe')
+    spm.SentencePieceTrainer.train(input=txt_path, model_prefix='ljspeech_bpe', vocab_size=8000, pad_id=3, model_type='bpe', character_coverage=1)
     sp = spm.SentencePieceProcessor(model_file='ljspeech_bpe.model')
     return sp
 
