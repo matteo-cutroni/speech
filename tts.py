@@ -58,16 +58,24 @@ if __name__ == "__main__":
 
     for epoch in tqdm(range(epochs)):
         m.train()
-
+ 
         tot_loss = 0
 
-        for batch in dataloader:
+        for batch in tqdm(dataloader):
             texts, mels = batch
             texts = texts.to(device)
             mels = mels.to(device)
 
             opt.zero_grad()
             pred = m(texts)
+            
+            # Ensure the sequence lengths match
+            min_length = min(pred.size(1), mels.size(1))  # Find the minimum length
+
+            # Truncate both to the minimum length
+            pred = pred[:, :min_length, :]
+            mels = mels[:, :min_length, :]
+
 
             loss = criterion(pred, mels)
             loss.backward()

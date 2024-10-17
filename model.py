@@ -31,7 +31,6 @@ class Encoder(nn.Module):
     def forward(self, x):
         x = self.embedding(x) * np.sqrt(x.size(1))
         x = self.positional_encoding(x)
-
         return self.transformer_encoder(x)
 
 
@@ -45,8 +44,7 @@ class VariancePredictor(nn.Module):
         self.linear = nn.Linear(conv_filter_size, 1)
 
     def forward(self, x):
-        # x shape: (batch_size, seq_len, d_model)
-        x = x.transpose(1, 2)  # Change shape to (batch_size, d_model, seq_len) for Conv1d
+        x = x.transpose(1, 2)
         x = self.dropout(F.relu(self.ln(self.conv1(x).transpose(1, 2)))).transpose(1, 2)
         x = self.dropout(F.relu(self.ln(self.conv2(x).transpose(1, 2)))).transpose(1, 2)
         x = self.linear(x.transpose(1, 2)).squeeze(-1)
@@ -62,7 +60,7 @@ class LengthRegulator(nn.Module):
         for i, seq in enumerate(x):
             expanded_seq = []
             for j, frame in enumerate(seq):
-                expanded_seq += frame * durations[i][j]
+                expanded_seq += [frame] * max(1, int(durations[i][j].item()))
             ret.append(torch.stack(expanded_seq))
         return nn.utils.rnn.pad_sequence(ret, batch_first=True)
 
